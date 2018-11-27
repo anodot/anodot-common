@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"log"
 	"github.com/anodot/anodot-common/anodotParser"
-	"github.com/anodot/anodot-remote-write/remoteStats"
+	"github.com/anodot/anodot-common/remoteStats"
 )
 
 const PATH  = "/api/v1/metrics/"

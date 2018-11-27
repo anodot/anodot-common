@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"strings"
 	"math"
-	"github.com/anodot/anodot-remote-write/remoteStats"
+	"github.com/anodot/anodot-common/remoteStats"
 	"encoding/json"
 	"log"
 	"errors"
