@@ -28,6 +28,9 @@ const (
 	MAX_PROPERTY_LENGTH = 150
 	MAX_NUMBER_OF_PROPERTIES = 20
 	WHAT_PROPERTY = "what"
+	TARGET_TYPE = "target_type"
+	COUNTER = "COUNTER"
+	GAUGE = "GAUGE"
 )  
 
 
@@ -115,7 +118,8 @@ func (p *AnodotParser) escape(tv model.LabelValue) string {
 	return result.String()
 }
 
-func (p *AnodotParser)ParseRequest(samples model.Samples, stats remoteStats.RemoteStatsInterface)([]AnodotMetric)  {
+
+func (p *AnodotParser) ParsePrometheusRequest(samples model.Samples, stats remoteStats.RemoteStatsInterface)([]AnodotMetric)  {
 
 	metrics := make([]AnodotMetric,0)
 
@@ -154,6 +158,12 @@ func (p *AnodotParser)ParseRequest(samples model.Samples, stats remoteStats.Remo
 
 			if l == model.MetricNameLabel{
 				metric.Properties[WHAT_PROPERTY] = p.escape(v)
+				metric.Tags = make(map[string]string)
+				if strings.HasSuffix(metric.Properties[WHAT_PROPERTY],"_total") {
+					metric.Tags[TARGET_TYPE] = COUNTER
+				} else {
+					metric.Tags[TARGET_TYPE] = GAUGE
+				}
 				continue
 			}
 
