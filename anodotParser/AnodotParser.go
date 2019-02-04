@@ -160,13 +160,13 @@ func (p *AnodotParser) ParsePrometheusRequest(samples model.Samples, stats remot
 				metric.Properties[WHAT_PROPERTY] = p.escape(v)
 				metric.Tags = make(map[string]string)
 				if strings.HasSuffix(metric.Properties[WHAT_PROPERTY],"_total") {
-					metric.Tags[TARGET_TYPE] = COUNTER
-				}
+					metric.Properties[TARGET_TYPE] = COUNTER
+				}else
 				if strings.HasSuffix(metric.Properties[WHAT_PROPERTY],"_sum") {
-					metric.Tags[TARGET_TYPE] = COUNTER
-				}
+					metric.Properties[TARGET_TYPE] = COUNTER
+				}else
 				if strings.HasSuffix(metric.Properties[WHAT_PROPERTY],"_count") {
-					metric.Tags[TARGET_TYPE] = COUNTER
+					metric.Properties[TARGET_TYPE] = COUNTER
 				}
 				continue
 			}
