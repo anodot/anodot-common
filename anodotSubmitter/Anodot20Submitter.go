@@ -23,27 +23,32 @@ type Anodot20Submitter struct {
 	Port      string
 	Token     string
 	Stats* 	  remoteStats.RemoteStats
+	MirrorUrl	string
+	MirrorPort	string
+	MirrorToken	string
 }
 
 type AnodotResponse struct {
 	errors []map[string]string `json:"errors"`
 }
 
-func NewAnodot20Submitter(url string,
-	port string,
-		token string,
-			stats* remoteStats.RemoteStats)(s Anodot20Submitter) {
-	return Anodot20Submitter{Url:url,Port:port,Token:token,Stats:stats}
+func NewAnodot20Submitter(url string, port string, token string,
+			stats* remoteStats.RemoteStats, murl string,mport string,mtoken string)(s Anodot20Submitter) {
+	return Anodot20Submitter{Url:url,Port:port,Token:token,Stats:stats,MirrorUrl:murl,MirrorPort:mport,MirrorToken:mtoken}
 }
 
-
-func (s *Anodot20Submitter) SubmitMetrics(metrics *[]anodotParser.AnodotMetric)  {
-
-
-	u, _ := url.ParseRequestURI(s.Url+":"+s.Port)
+func (s *Anodot20Submitter) MirrorMetrics(metrics *[]anodotParser.AnodotMetric){
+	u, _ := url.ParseRequestURI(s.MirrorUrl+":"+s.MirrorPort)
 	u.Path  = PATH
 	q := u.Query()
-	q.Set("token",s.Token)
+	q.Set("token",s.MirrorToken)
+	s.submitMetrics(metrics,u,q)
+	s.Stats.UpdateHist(remoteStats.MIRROR_REMOTE_SAMPLES_PER_REQUEST,int64(len(*metrics)))
+	s.Stats.UpdateMeter(remoteStats.MIRROR_SUBMITTED_SAMPLES,int64(len(*metrics)))
+	s.Stats.UpdateMeter(remoteStats.MIRROR_REMOTE_REQUESTS,1)
+}
+
+func (s *Anodot20Submitter) submitMetrics(metrics *[]anodotParser.AnodotMetric,u *url.URL,q url.Values){
 	q.Set("protocol",PROTOCOL)
 	u.RawQuery = q.Encode()
 	urlStr := fmt.Sprintf("%v", u)
@@ -89,6 +94,15 @@ func (s *Anodot20Submitter) SubmitMetrics(metrics *[]anodotParser.AnodotMetric) 
 	if anodotResponse.errors != nil{
 		fmt.Println(anodotResponse)
 	}
+
+}
+
+func (s *Anodot20Submitter) SubmitMetrics(metrics *[]anodotParser.AnodotMetric)  {
+	u, _ := url.ParseRequestURI(s.Url+":"+s.Port)
+	u.Path  = PATH
+	q := u.Query()
+	q.Set("token",s.Token)
+	s.submitMetrics(metrics,u,q)
 	s.Stats.UpdateHist(remoteStats.REMOTE_SAMPLES_PER_REQUEST,int64(len(*metrics)))
 	s.Stats.UpdateMeter(remoteStats.SUBMITTED_SAMPLES,int64(len(*metrics)))
 	s.Stats.UpdateMeter(remoteStats.REMOTE_REQUESTS,1)

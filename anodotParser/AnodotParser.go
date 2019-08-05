@@ -159,7 +159,8 @@ func (p *AnodotParser) ParsePrometheusRequest(samples model.Samples, stats remot
 			if l == model.MetricNameLabel{
 				metric.Properties[WHAT_PROPERTY] = p.escape(v)
 				metric.Tags = make(map[string]string)
-				if strings.HasSuffix(metric.Properties[WHAT_PROPERTY],"_total") {
+				//Should be managed on prometheus config
+				/*if strings.HasSuffix(metric.Properties[WHAT_PROPERTY],"_total") {
 					metric.Properties[TARGET_TYPE] = COUNTER
 				}else
 				if strings.HasSuffix(metric.Properties[WHAT_PROPERTY],"_sum") {
@@ -167,7 +168,7 @@ func (p *AnodotParser) ParsePrometheusRequest(samples model.Samples, stats remot
 				}else
 				if strings.HasSuffix(metric.Properties[WHAT_PROPERTY],"_count") {
 					metric.Properties[TARGET_TYPE] = COUNTER
-				}
+				}*/
 				continue
 			}
 
