@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/anodot/anodot-common/anodotParser"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"io/ioutil"
@@ -16,8 +15,24 @@ import (
 	"time"
 )
 
+type AnodotTimestamp struct {
+	time.Time
+}
+
+func (t *AnodotTimestamp) MarshalJSON() ([]byte, error) {
+	stamp := fmt.Sprint(t.Unix())
+	return []byte(stamp), nil
+}
+
+type Anodot20Metric struct {
+	Properties map[string]string `json:"properties"`
+	Timestamp  AnodotTimestamp   `json:"timestamp"`
+	Value      float64           `json:"value"`
+	Tags       map[string]string `json:"tags"`
+}
+
 type Submitter interface {
-	SubmitMetrics(metrics []anodotParser.AnodotMetric) (*AnodotResponse, error)
+	SubmitMetrics(metrics []Anodot20Metric) (*AnodotResponse, error)
 }
 
 //  Anodot 2.0 Metrics submitter.
@@ -75,14 +90,7 @@ func NewAnodot20Submitter(anodotURL string, apiToken string, httpClient *http.Cl
 	return &submitter, nil
 }
 
-func Collectors() []prometheus.Collector {
-	collectors := make([]prometheus.Collector, 0)
-	collectors = append(collectors, anoServerhttpReponses)
-
-	return collectors
-}
-
-func (s *Anodot20Submitter) SubmitMetrics(metrics []anodotParser.AnodotMetric) (*AnodotResponse, error) {
+func (s *Anodot20Submitter) SubmitMetrics(metrics []Anodot20Metric) (*AnodotResponse, error) {
 	s.ServerURL.Path = "/api/v1/metrics/"
 
 	q := s.ServerURL.Query()
