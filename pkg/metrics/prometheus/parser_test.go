@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+//vnekhai: TODO add more tests
 func TestReceiver(t *testing.T) {
 	samples := model.Samples{
 		{
@@ -48,7 +49,7 @@ func TestReceiver(t *testing.T) {
 		},
 	}
 
-	err, parser := NewAnodotParser(nil, nil)
+	parser, err := NewAnodotParser(nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -56,15 +57,7 @@ func TestReceiver(t *testing.T) {
 	anodotMetrics := parser.ParsePrometheusRequest(samples)
 
 	if len(anodotMetrics) != 3 {
-		t.Fatalf(fmt.Sprintf("Expected number of metris=3. Found=%d", len(anodotMetrics)))
-	}
-
-	for _, m := range anodotMetrics {
-		switch m.Properties["what"] {
-		case "testmetric":
-		case "testmetric":
-
-		}
+		t.Fatalf(fmt.Sprintf("Expected number of metrics=3. Found=%d", len(anodotMetrics)))
 	}
 
 	for _, m := range anodotMetrics {
@@ -117,8 +110,7 @@ func TestFilters(t *testing.T) {
 	}
 
 	filterOut := `{"test_label":"test_label_value2"}`
-	err, parser := NewAnodotParser(nil, &filterOut)
-
+	parser, err := NewAnodotParser(nil, &filterOut)
 	if err != nil {
 		t.Fail()
 	}
@@ -173,8 +165,7 @@ func TestFilters2(t *testing.T) {
 	}
 
 	filterIn := `{"test_label":"test_label_value2"}`
-	err, parser := NewAnodotParser(&filterIn, nil)
-
+	parser, err := NewAnodotParser(&filterIn, nil)
 	if err != nil {
 		t.Fail()
 	}
@@ -229,15 +220,12 @@ func TestFilters4(t *testing.T) {
 	}
 
 	filterIn := `{"test_label":"test_label_value2","tst_label":"test_label_value1"}`
-	err, parser := NewAnodotParser(&filterIn, nil)
-
+	parser, err := NewAnodotParser(&filterIn, nil)
 	if err != nil {
 		t.Fail()
 	}
 
 	metrics := parser.ParsePrometheusRequest(samples)
-
-	fmt.Println(metrics)
 	if len(metrics) != 2 {
 		t.Fail()
 	}

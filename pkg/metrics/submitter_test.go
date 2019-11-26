@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+//vnekhai: TODO add more tests
 func TestSubmitter(t *testing.T) {
 
 	i, err := strconv.ParseInt("1540153181", 10, 64)

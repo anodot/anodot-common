@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/anodot/anodot-common/metrics"
+	"github.com/anodot/anodot-common/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/model"
@@ -44,26 +44,24 @@ const (
 		"!\"#$%&\\'()*+,-./:;<=>?@[\\]^_`{|}~")
 )
 
-func NewAnodotParser(filterIn *string, filterOut *string) (error, AnodotParser) {
+func NewAnodotParser(filterIn *string, filterOut *string) (*AnodotParser, error) {
 
 	var parser AnodotParser
 
 	if filterIn != nil && *filterIn != "" {
-		error := json.Unmarshal([]byte(*filterIn), &parser.FilterInProperties)
-		if error != nil {
-			log.Println("Failed to Parse In Filter")
-			return errors.New("Failed to Parse Filter"), parser
+		err := json.Unmarshal([]byte(*filterIn), &parser.FilterInProperties)
+		if err != nil {
+			return nil, errors.New("failed to parse filterIn expression")
 		}
 	}
 
 	if filterOut != nil && *filterOut != "" {
-		error := json.Unmarshal([]byte(*filterOut), &parser.FilterOutProperties)
-		if error != nil {
-			log.Println("Failed to Parse Out Filter")
-			return errors.New("Failed to Parse Filter"), parser
+		err := json.Unmarshal([]byte(*filterOut), &parser.FilterOutProperties)
+		if err != nil {
+			return nil, errors.New("failed to parse filterOut expression")
 		}
 	}
-	return nil, parser
+	return &parser, nil
 }
 
 func (p *AnodotParser) filter(metrics *[]metrics.Anodot20Metric, metric *metrics.Anodot20Metric) {
@@ -126,7 +124,7 @@ func (p *AnodotParser) ParsePrometheusRequest(samples model.Samples) []metrics.A
 	for _, r := range samples {
 		var metric metrics.Anodot20Metric
 
-		metric.Timestamp = metrics.AnodotTimestamp{r.Timestamp.Time()}
+		metric.Timestamp = metrics.AnodotTimestamp{Time: r.Timestamp.Time()}
 		metric.Value = float64(r.Value)
 
 		if math.IsNaN(metric.Value) || math.IsInf(metric.Value, 0) {

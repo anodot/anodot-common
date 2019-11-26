@@ -7,10 +7,9 @@ lint: vet
 test-all: test
 
 test:
-	$(GO) test -v ./...
-
+	GOFLAGS=$(GO_ARGS) $(GO) test -v -race -coverprofile=coverage.txt -covermode=atomic -timeout 10s ./pkg/...
 format:
-	gofmt -w ./..
+	gofmt -w ./pkg
 
 #TODO:vnekhai do not download each time
 vet:
