@@ -114,7 +114,7 @@ func (s *Anodot20Submitter) SubmitMetrics(metrics []Anodot20Metric) (*AnodotResp
 		return anodotResponse, err
 	}
 
-	anoServerhttpReponses.WithLabelValues(s.AnodotURL().String(), strconv.Itoa(resp.StatusCode)).Inc()
+	anoServerhttpReponses.WithLabelValues(s.AnodotURL().Host, strconv.Itoa(resp.StatusCode)).Inc()
 
 	if resp.StatusCode != 200 {
 		return anodotResponse, fmt.Errorf("http error: %d", resp.StatusCode)
