@@ -33,6 +33,7 @@ type Anodot20Metric struct {
 
 type Submitter interface {
 	SubmitMetrics(metrics []Anodot20Metric) (*AnodotResponse, error)
+	AnodotURL() *url.URL
 }
 
 //  Anodot 2.0 Metrics submitter.
@@ -67,7 +68,7 @@ var (
 	anoServerhttpReponses = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "anodot_server_http_responses_total",
 		Help: "Total number of HTTP reposes of Anodot server",
-	}, []string{"response_code"})
+	}, []string{"server", "response_code"})
 )
 
 //Constructs new Anodot 2.0 submitter which should be used to send metrics to Anodot.
@@ -113,7 +114,7 @@ func (s *Anodot20Submitter) SubmitMetrics(metrics []Anodot20Metric) (*AnodotResp
 		return anodotResponse, err
 	}
 
-	anoServerhttpReponses.WithLabelValues(strconv.Itoa(resp.StatusCode)).Inc()
+	anoServerhttpReponses.WithLabelValues(s.AnodotURL().String(), strconv.Itoa(resp.StatusCode)).Inc()
 
 	if resp.StatusCode != 200 {
 		return anodotResponse, fmt.Errorf("http error: %d", resp.StatusCode)
@@ -134,4 +135,8 @@ func (s *Anodot20Submitter) SubmitMetrics(metrics []Anodot20Metric) (*AnodotResp
 	} else {
 		return anodotResponse, nil
 	}
+}
+
+func (s *Anodot20Submitter) AnodotURL() *url.URL {
+	return s.ServerURL
 }
