@@ -67,7 +67,7 @@ func (r *AnodotResponse) ErrorMessage() string {
 var (
 	anoServerhttpReponses = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "anodot_server_http_responses_total",
-		Help: "Total number of HTTP reposes of Anodot server",
+		Help: "Total number of HTTP responses of Anodot server",
 	}, []string{"server", "response_code"})
 )
 
