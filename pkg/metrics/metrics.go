@@ -92,7 +92,7 @@ func NewAnodot20Submitter(anodotURL string, apiToken string, httpClient *http.Cl
 }
 
 func (s *Anodot20Submitter) SubmitMetrics(metrics []Anodot20Metric) (*AnodotResponse, error) {
-	s.ServerURL.Path = "/api/v1/metrics/"
+	s.ServerURL.Path = "/api/v1/metrics"
 
 	q := s.ServerURL.Query()
 	q.Set("token", s.Token)
