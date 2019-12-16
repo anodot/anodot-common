@@ -49,7 +49,7 @@ func TestReceiver(t *testing.T) {
 		},
 	}
 
-	parser, err := NewAnodotParser(nil, nil)
+	parser, err := NewAnodotParser(nil, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -110,7 +110,7 @@ func TestFilters(t *testing.T) {
 	}
 
 	filterOut := `{"test_label":"test_label_value2"}`
-	parser, err := NewAnodotParser(nil, &filterOut)
+	parser, err := NewAnodotParser(nil, &filterOut, nil)
 	if err != nil {
 		t.Fail()
 	}
@@ -165,7 +165,7 @@ func TestFilters2(t *testing.T) {
 	}
 
 	filterIn := `{"test_label":"test_label_value2"}`
-	parser, err := NewAnodotParser(&filterIn, nil)
+	parser, err := NewAnodotParser(&filterIn, nil, nil)
 	if err != nil {
 		t.Fail()
 	}
@@ -220,7 +220,7 @@ func TestFilters4(t *testing.T) {
 	}
 
 	filterIn := `{"test_label":"test_label_value2","tst_label":"test_label_value1"}`
-	parser, err := NewAnodotParser(&filterIn, nil)
+	parser, err := NewAnodotParser(&filterIn, nil, nil)
 	if err != nil {
 		t.Fail()
 	}
