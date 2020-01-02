@@ -35,8 +35,7 @@ type AnodotTimestamp struct {
 }
 
 func (t *AnodotTimestamp) MarshalJSON() ([]byte, error) {
-	stamp := fmt.Sprint(t.Unix())
-	return []byte(stamp), nil
+	return []byte(fmt.Sprint(t.Unix())), nil
 }
 
 type Anodot20Metric struct {
@@ -44,6 +43,36 @@ type Anodot20Metric struct {
 	Timestamp  AnodotTimestamp   `json:"timestamp"`
 	Value      float64           `json:"value"`
 	Tags       map[string]string `json:"tags"`
+}
+
+func (m *Anodot20Metric) MarshalJSON() ([]byte, error) {
+	type Alias Anodot20Metric
+
+	encProps := make(map[string]string, len(m.Properties))
+	encTags := make(map[string]string, len(m.Tags))
+
+	for k, v := range m.Properties {
+		encProps[escape(strings.TrimSpace(k))] = escape(strings.TrimSpace(v))
+	}
+
+	for k, v := range m.Tags {
+		encTags[escape(strings.TrimSpace(k))] = escape(strings.TrimSpace(v))
+	}
+
+	return json.Marshal(&struct {
+		Properties map[string]string `json:"properties"`
+		Tags       map[string]string `json:"tags"`
+		*Alias
+	}{
+		Properties: encProps,
+		Tags:       encTags,
+		Alias:      (*Alias)(m),
+	})
+}
+
+func escape(s string) string {
+	result := strings.ReplaceAll(s, ".", "_")
+	return strings.ReplaceAll(result, " ", "_")
 }
 
 type AnodotResponse interface {
