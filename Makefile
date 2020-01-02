@@ -4,7 +4,7 @@ GO_ARGS:=GO111MODULE=on GOFLAGS=-mod=vendor
 GOLINT_VERSION:=1.19.1
 
 lint: vet
-test-all: test
+test-all: lint test
 
 test:
 	GOFLAGS=$(GO_ARGS) $(GO) test -v -race -coverprofile=coverage.txt -covermode=atomic -timeout 10s ./pkg/...

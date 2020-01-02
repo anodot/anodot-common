@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
@@ -15,19 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-)
-
-//TODO vnekhai: add docs to exported methods
-var (
-	httpTimeout = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "anodot_server_http_timeout_seconds",
-		Help: "Metrics submitter client http timeout seconds",
-	})
-
-	anoServerhttpReponses = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "anodot_server_http_responses_total",
-		Help: "Total number of HTTP responses of Anodot server",
-	}, []string{"server", "response_code"})
 )
 
 type AnodotTimestamp struct {
@@ -167,14 +152,12 @@ func NewAnodot20Client(anodotURL string, apiToken string, httpClient *http.Clien
 	if httpClient == nil {
 		client := http.Client{Timeout: 30 * time.Second}
 
-		debugHTTP, _ := strconv.ParseBool(os.Getenv("ANODOT_HTTP_DEBUG"))
+		debugHTTP, _ := strconv.ParseBool(os.Getenv("ANODOT_HTTP_DEBUG_ENABLED"))
 		if debugHTTP {
 			client.Transport = &debugHTTPTransport{r: http.DefaultTransport}
 		}
 		submitter.client = &client
 	}
-
-	httpTimeout.Set(submitter.client.Timeout.Seconds())
 
 	return &submitter, nil
 }
@@ -201,8 +184,6 @@ func (s *Anodot20Client) SubmitMetrics(metrics []Anodot20Metric) (AnodotResponse
 	if err != nil {
 		return anodotResponse, err
 	}
-
-	anoServerhttpReponses.WithLabelValues(s.AnodotURL().Host, strconv.Itoa(resp.StatusCode)).Inc()
 
 	if resp.StatusCode != 200 {
 		return anodotResponse, fmt.Errorf("http error: %d", resp.StatusCode)
