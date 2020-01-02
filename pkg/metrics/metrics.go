@@ -135,7 +135,7 @@ func (a *DeleteResponse) RawResponse() *http.Response {
 }
 
 type Submitter interface {
-	SubmitMetrics(metrics []Anodot20Metric) (*AnodotResponse, error)
+	SubmitMetrics(metrics []Anodot20Metric) (AnodotResponse, error)
 	AnodotURL() *url.URL
 }
 
