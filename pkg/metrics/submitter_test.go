@@ -51,6 +51,7 @@ func TestSpecialChars(t *testing.T) {
 		description string
 	}{
 		{"host.port", "host_port", "'.' in name"},
+		{"key=value", "key_value", "'=' in name"},
 		{"server name", "server_name", "'space' in name"},
 		{"name ", "name", "'space' at the end"},
 		{"value>S", "value\u003eS", "'>' in name"},
