@@ -140,17 +140,13 @@ type Anodot20Client struct {
 }
 
 //Constructs new Anodot 2.0 submitter which should be used to send metrics to Anodot.
-func NewAnodot20Client(anodotURL string, apiToken string, httpClient *http.Client) (*Anodot20Client, error) {
-	parsedUrl, err := url.Parse(anodotURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Anodot server url: %w", err)
-	}
+func NewAnodot20Client(anodotURL url.URL, apiToken string, httpClient *http.Client) (*Anodot20Client, error) {
 
 	if len(strings.TrimSpace(apiToken)) == 0 {
 		return nil, fmt.Errorf("anodot api token should not be blank")
 	}
 
-	submitter := Anodot20Client{Token: apiToken, ServerURL: parsedUrl, client: httpClient}
+	submitter := Anodot20Client{Token: apiToken, ServerURL: &anodotURL, client: httpClient}
 	if httpClient == nil {
 		client := http.Client{Timeout: 30 * time.Second}
 
@@ -262,9 +258,17 @@ type debugHTTPTransport struct {
 }
 
 func (d *debugHTTPTransport) RoundTrip(h *http.Request) (*http.Response, error) {
+	defer func() {
+		recover()
+	}()
+
 	dump, _ := httputil.DumpRequestOut(h, true)
 	fmt.Printf("----------------------------------REQUEST----------------------------------\n%s\n", string(dump))
 	resp, err := d.r.RoundTrip(h)
+	if err != nil {
+		fmt.Println("failed to obtain response: ", err.Error())
+	}
+
 	dump, _ = httputil.DumpResponse(resp, true)
 	fmt.Printf("----------------------------------RESPONSE----------------------------------\n%s\n----------------------------------\n\n", string(dump))
 	return resp, err
