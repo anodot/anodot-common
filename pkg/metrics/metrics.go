@@ -258,15 +258,12 @@ type debugHTTPTransport struct {
 }
 
 func (d *debugHTTPTransport) RoundTrip(h *http.Request) (*http.Response, error) {
-	defer func() {
-		recover()
-	}()
-
 	dump, _ := httputil.DumpRequestOut(h, true)
 	fmt.Printf("----------------------------------REQUEST----------------------------------\n%s\n", string(dump))
 	resp, err := d.r.RoundTrip(h)
 	if err != nil {
 		fmt.Println("failed to obtain response: ", err.Error())
+		return resp, err
 	}
 
 	dump, _ = httputil.DumpResponse(resp, true)
