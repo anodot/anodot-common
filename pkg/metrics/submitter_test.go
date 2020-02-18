@@ -4,19 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
 	"testing"
 	"time"
 )
 
-//vnekhai: TODO add more tests
 func TestSubmitter(t *testing.T) {
-
-	i, err := strconv.ParseInt("1540153181", 10, 64)
+	layout := "2006-01-02T15:04:05.000Z"
+	str := "2014-11-12T11:45:26.371Z"
+	ts, err := time.Parse(layout, str)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
-	ts := time.Unix(i, 0)
 
 	metrics := make([]Anodot20Metric, 0)
 	metric := Anodot20Metric{Properties: map[string]string{"what": "test2", "target_type": "gauge", "source": "gotest"}, Timestamp: AnodotTimestamp{ts}, Value: 1, Tags: map[string]string{}}
@@ -29,7 +27,7 @@ func TestSubmitter(t *testing.T) {
 			t.Fatal("Failed to convert metrics to json", e)
 		}
 
-		excpedtedJonsOutput := `[{"properties":{"source":"gotest","target_type":"gauge","what":"test2"},"timestamp":1540153181,"value":1,"tags":{}},{"properties":{"source":"gotest","target_type":"gauge","what":"test2"},"timestamp":1540153181,"value":1,"tags":{}}]`
+		excpedtedJonsOutput := `[{"properties":{"source":"gotest","target_type":"gauge","what":"test2"},"timestamp":1415792726,"value":1,"tags":{}},{"properties":{"source":"gotest","target_type":"gauge","what":"test2"},"timestamp":1415792726,"value":1,"tags":{}}]`
 		actualJson := string(b)
 
 		equal, err := equalJson(actualJson, excpedtedJonsOutput)
