@@ -19,7 +19,7 @@ type AnodotTimestamp struct {
 	time.Time
 }
 
-func (t *AnodotTimestamp) MarshalJSON() ([]byte, error) {
+func (t AnodotTimestamp) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprint(t.Unix())), nil
 }
 
