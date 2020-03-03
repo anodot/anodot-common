@@ -5,29 +5,32 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/anodot/anodot-common/pkg/client"
+	"github.com/anodot/anodot-common/pkg/common"
 	"io/ioutil"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
-	"os"
-	"strconv"
 	"strings"
-	"time"
 )
 
-type AnodotTimestamp struct {
-	time.Time
+type Interface interface {
+	Submit20Metrics(metrics []Anodot20Metric) (AnodotResponse, error)
+	DeleteMetrics(expressions ...DeleteExpression) (AnodotResponse, error)
 }
 
-func (t AnodotTimestamp) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprint(t.Unix())), nil
+type metricsService struct {
+	client.AnodotClient
+}
+
+func New(c client.AnodotClient) *metricsService {
+	return &metricsService{c}
 }
 
 type Anodot20Metric struct {
-	Properties map[string]string `json:"properties"`
-	Timestamp  AnodotTimestamp   `json:"timestamp"`
-	Value      float64           `json:"value"`
-	Tags       map[string]string `json:"tags"`
+	Properties map[string]string      `json:"properties"`
+	Timestamp  common.AnodotTimestamp `json:"timestamp"`
+	Value      float64                `json:"value"`
+	Tags       map[string]string      `json:"tags"`
 }
 
 func (m *Anodot20Metric) MarshalJSON() ([]byte, error) {
@@ -126,58 +129,25 @@ type Submitter interface {
 	AnodotURL() *url.URL
 }
 
-func (s *Anodot20Client) AnodotURL() *url.URL {
-	return s.ServerURL
-}
+func (s *metricsService) Submit20Metrics(metrics []Anodot20Metric) (AnodotResponse, error) {
+	//s.AnodotURL().Path = "/api/v1/metrics"
 
-//  Anodot 2.0 Metrics client.
-// See more details at https://support.anodot.com/hc/en-us/articles/360020259354-Posting-2-0-Metrics-
-type Anodot20Client struct {
-	ServerURL *url.URL
-	Token     string
-
-	client *http.Client
-}
-
-//Constructs new Anodot 2.0 submitter which should be used to send metrics to Anodot.
-func NewAnodot20Client(anodotURL url.URL, apiToken string, httpClient *http.Client) (*Anodot20Client, error) {
-
-	if len(strings.TrimSpace(apiToken)) == 0 {
-		return nil, fmt.Errorf("anodot api token should not be blank")
-	}
-
-	submitter := Anodot20Client{Token: apiToken, ServerURL: &anodotURL, client: httpClient}
-	if httpClient == nil {
-		client := http.Client{Timeout: 30 * time.Second}
-
-		debugHTTP, _ := strconv.ParseBool(os.Getenv("ANODOT_HTTP_DEBUG_ENABLED"))
-		if debugHTTP {
-			client.Transport = &debugHTTPTransport{r: http.DefaultTransport}
-		}
-		submitter.client = &client
-	}
-
-	return &submitter, nil
-}
-
-func (s *Anodot20Client) SubmitMetrics(metrics []Anodot20Metric) (AnodotResponse, error) {
-	s.ServerURL.Path = "/api/v1/metrics"
-
-	q := s.ServerURL.Query()
-	q.Set("token", s.Token)
+	anodotURL := s.AnodotURL()
+	q := anodotURL.Query()
+	q.Set("token", s.Token())
 	q.Set("protocol", "anodot20")
 
-	s.ServerURL.RawQuery = q.Encode()
+	//s.AnodotURL().RawQuery = q.Encode()
 
 	b, e := json.Marshal(metrics)
 	if e != nil {
 		return nil, fmt.Errorf("Failed to parse message:" + e.Error())
 	}
 
-	r, _ := http.NewRequest(http.MethodPost, s.ServerURL.String(), bytes.NewBuffer(b))
+	r, _ := http.NewRequest(http.MethodPost, anodotURL.String(), bytes.NewBuffer(b))
 	r.Header.Add("Content-Type", "application/json")
 
-	resp, err := s.client.Do(r)
+	resp, err := s.HTTPClient().Do(r)
 	anodotResponse := &CreateResponse{HttpResponse: resp}
 	if err != nil {
 		return anodotResponse, err
@@ -204,13 +174,14 @@ func (s *Anodot20Client) SubmitMetrics(metrics []Anodot20Metric) (AnodotResponse
 	}
 }
 
-func (s *Anodot20Client) DeleteMetrics(expressions ...DeleteExpression) (AnodotResponse, error) {
-	s.ServerURL.Path = "/api/v1/metrics"
+func (s *metricsService) DeleteMetrics(expressions ...DeleteExpression) (AnodotResponse, error) {
+	//s.AnodotURL().Path = "/api/v1/metrics"
 
-	q := s.ServerURL.Query()
-	q.Set("token", s.Token)
+	anodotURL := s.AnodotURL()
+	q := anodotURL.Query()
+	q.Set("token", s.Token())
 
-	s.ServerURL.RawQuery = q.Encode()
+	//s.AnodotURL().RawQuery = q.Encode()
 
 	deleteStruct := struct {
 		Expression []DeleteExpression `json:"expression"`
@@ -222,10 +193,10 @@ func (s *Anodot20Client) DeleteMetrics(expressions ...DeleteExpression) (AnodotR
 		return nil, fmt.Errorf("failed to parse delete expression:" + e.Error())
 	}
 
-	r, _ := http.NewRequest(http.MethodDelete, s.ServerURL.String(), bytes.NewBuffer(b))
+	r, _ := http.NewRequest(http.MethodDelete, anodotURL.String(), bytes.NewBuffer(b))
 	r.Header.Add("Content-Type", "application/json")
 
-	resp, err := s.client.Do(r)
+	resp, err := s.HTTPClient().Do(r)
 	anodotResponse := &DeleteResponse{HttpResponse: resp}
 	if err != nil {
 		return anodotResponse, err
@@ -251,22 +222,4 @@ func (s *Anodot20Client) DeleteMetrics(expressions ...DeleteExpression) (AnodotR
 	} else {
 		return anodotResponse, nil
 	}
-}
-
-type debugHTTPTransport struct {
-	r http.RoundTripper
-}
-
-func (d *debugHTTPTransport) RoundTrip(h *http.Request) (*http.Response, error) {
-	dump, _ := httputil.DumpRequestOut(h, true)
-	fmt.Printf("----------------------------------REQUEST----------------------------------\n%s\n", string(dump))
-	resp, err := d.r.RoundTrip(h)
-	if err != nil {
-		fmt.Println("failed to obtain response: ", err.Error())
-		return resp, err
-	}
-
-	dump, _ = httputil.DumpResponse(resp, true)
-	fmt.Printf("----------------------------------RESPONSE----------------------------------\n%s\n----------------------------------\n\n", string(dump))
-	return resp, err
 }
