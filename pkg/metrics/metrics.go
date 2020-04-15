@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,15 +13,15 @@ import (
 )
 
 type Interface interface {
-	Submit20Metrics(metrics []Anodot20Metric) (AnodotResponse, error)
-	DeleteMetrics(expressions ...DeleteExpression) (AnodotResponse, error)
+	Submit20Metrics(metrics []Anodot20Metric) (common.AnodotResponse, error)
+	DeleteMetrics(expressions ...DeleteExpression) (common.AnodotResponse, error)
 }
 
 type metricsService struct {
-	client.AnodotClient
+	*client.AnodotClient
 }
 
-func New(c client.AnodotClient) *metricsService {
+func NewService(c *client.AnodotClient) *metricsService {
 	return &metricsService{c}
 }
 
@@ -65,35 +64,6 @@ func escape(s string) string {
 	return strings.ReplaceAll(result, " ", "_")
 }
 
-type AnodotResponse interface {
-	HasErrors() bool
-	ErrorMessage() string
-	RawResponse() *http.Response
-}
-
-// Anodot server response.
-// See more at: https://app.swaggerhub.com/apis/Anodot/metrics_protocol_2.0/1.0.0#/ErrorResponse
-type CreateResponse struct {
-	Errors []struct {
-		Description string
-		Error       int64
-		Index       string
-	} `json:"errors"`
-	HttpResponse *http.Response `json:"-"`
-}
-
-func (r *CreateResponse) HasErrors() bool {
-	return len(r.Errors) > 0
-}
-
-func (r *CreateResponse) ErrorMessage() string {
-	return fmt.Sprintf("%+v\n", r.Errors)
-}
-
-func (r *CreateResponse) RawResponse() *http.Response {
-	return r.HttpResponse
-}
-
 type DeleteResponse struct {
 	ID         string `json:"id"`
 	Validation struct {
@@ -125,32 +95,21 @@ func (a *DeleteResponse) RawResponse() *http.Response {
 }
 
 type Submitter interface {
-	SubmitMetrics(metrics []Anodot20Metric) (AnodotResponse, error)
+	SubmitMetrics(metrics []Anodot20Metric) (common.AnodotResponse, error)
 	AnodotURL() *url.URL
 }
 
-func (s *metricsService) Submit20Metrics(metrics []Anodot20Metric) (AnodotResponse, error) {
-	//s.AnodotURL().Path = "/api/v1/metrics"
-
-	anodotURL := s.AnodotURL()
-	q := anodotURL.Query()
-	q.Set("token", s.Token())
-	q.Set("protocol", "anodot20")
-
-	//s.AnodotURL().RawQuery = q.Encode()
-
-	b, e := json.Marshal(metrics)
-	if e != nil {
-		return nil, fmt.Errorf("Failed to parse message:" + e.Error())
+func (s *metricsService) Submit20Metrics(metrics []Anodot20Metric) (common.AnodotResponse, error) {
+	u := fmt.Sprintf("/api/v1/metrics?protocol=%s", "anodot20")
+	request, err := s.NewRequest(http.MethodPost, u, metrics)
+	if err != nil {
+		return nil, err
 	}
 
-	r, _ := http.NewRequest(http.MethodPost, anodotURL.String(), bytes.NewBuffer(b))
-	r.Header.Add("Content-Type", "application/json")
-
-	resp, err := s.HTTPClient().Do(r)
-	anodotResponse := &CreateResponse{HttpResponse: resp}
+	resp, err := s.Do(request)
+	anodotResponse := &common.ErrorResponse{HttpResponse: resp}
 	if err != nil {
-		return anodotResponse, err
+		return nil, err
 	}
 
 	if resp.StatusCode != 200 {
@@ -174,29 +133,18 @@ func (s *metricsService) Submit20Metrics(metrics []Anodot20Metric) (AnodotRespon
 	}
 }
 
-func (s *metricsService) DeleteMetrics(expressions ...DeleteExpression) (AnodotResponse, error) {
-	//s.AnodotURL().Path = "/api/v1/metrics"
-
-	anodotURL := s.AnodotURL()
-	q := anodotURL.Query()
-	q.Set("token", s.Token())
-
-	//s.AnodotURL().RawQuery = q.Encode()
-
+func (s *metricsService) DeleteMetrics(expressions ...DeleteExpression) (common.AnodotResponse, error) {
 	deleteStruct := struct {
 		Expression []DeleteExpression `json:"expression"`
 	}{}
 	deleteStruct.Expression = expressions
 
-	b, e := json.Marshal(deleteStruct)
-	if e != nil {
-		return nil, fmt.Errorf("failed to parse delete expression:" + e.Error())
+	request, err := s.NewRequest(http.MethodDelete, "/api/v1/metrics", deleteStruct)
+	if err != nil {
+		return nil, err
 	}
 
-	r, _ := http.NewRequest(http.MethodDelete, anodotURL.String(), bytes.NewBuffer(b))
-	r.Header.Add("Content-Type", "application/json")
-
-	resp, err := s.HTTPClient().Do(r)
+	resp, err := s.Do(request)
 	anodotResponse := &DeleteResponse{HttpResponse: resp}
 	if err != nil {
 		return anodotResponse, err

@@ -2,6 +2,7 @@ package events
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/anodot/anodot-common/pkg/client"
 	"github.com/anodot/anodot-common/pkg/common"
@@ -11,17 +12,18 @@ import (
 )
 
 type Event struct {
-	ID          string `json:"id,omitempty"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Category    string `json:"category"`
-	Source      string `json:"source"`
-	Properties  []struct {
-		Key   string `json:"key"`
-		Value string `json:"value"`
-	} `json:"properties"`
-	StartDate common.AnodotTimestamp  `json:"startDate"`
-	EndDate   *common.AnodotTimestamp `json:"endDate,omitempty"`
+	ID          string                  `json:"id,omitempty"`
+	Title       string                  `json:"title"`
+	Description string                  `json:"description"`
+	Category    string                  `json:"category"`
+	Source      string                  `json:"source"`
+	Properties  []EventProperties       `json:"properties"`
+	StartDate   common.AnodotTimestamp  `json:"startDate"`
+	EndDate     *common.AnodotTimestamp `json:"endDate,omitempty"`
+}
+type EventProperties struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type EventCategory struct {
@@ -38,8 +40,12 @@ type EventSource struct {
 	Owner    string `json:"owner"`
 }
 
-type EventsService struct {
+type eventsService struct {
 	*client.AnodotClient
+}
+
+func NewService(c *client.AnodotClient) *eventsService {
+	return &eventsService{AnodotClient: c}
 }
 
 type Interface interface {
@@ -56,22 +62,40 @@ type Interface interface {
 	DeleteSource()
 }
 
-func (e *EventsService) Create(event Event) (*Event, error) {
+func (e *eventsService) Create(event Event) (*Event, error) {
 	createStruct := struct {
 		Event Event `json:"event"`
 	}{Event: event}
 
 	request, err := e.NewRequest(http.MethodPost, "/api/v1/user-events", createStruct)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := e.Do(request)
 	if err != nil {
 		return nil, err
 	}
 
-	var newEvent Event
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
+
+	if resp.StatusCode != 200 {
+		var errResp common.ErrorResponse
+		err = json.Unmarshal(bodyBytes, &errResp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse Anodot sever response: %w. Status code : %d", err, resp.StatusCode)
+		}
+
+		if errResp.HasErrors() {
+			return nil, errors.New(errResp.ErrorMessage())
+		} else {
+			return nil, errors.New(string(bodyBytes))
+		}
+	}
+
+	var newEvent Event
 	err = json.Unmarshal(bodyBytes, &newEvent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Anodot sever response: %w ", err)
@@ -80,25 +104,31 @@ func (e *EventsService) Create(event Event) (*Event, error) {
 	return &newEvent, nil
 }
 
-func (e *EventsService) Get(id string) (*Event, error) {
+func (e *eventsService) Get(id string) (*Event, error) {
 	panic("implement me")
 }
 
-func (e *EventsService) Delete(id string) (Event, error) {
+func (e *eventsService) Delete(id string) (Event, error) {
 	panic("implement me")
 }
 
-func (e *EventsService) CreateCategory(name string, imageURL *url.URL) (*EventCategory, error) {
+func (e *eventsService) CreateCategory(name string, imageURL *url.URL) (*EventCategory, error) {
 	createStruct := struct {
-		Name     string `json:"name"`
-		ImageURL string `json:"imageUrl"`
-	}{Name: name}
+		Category struct {
+			Name     string `json:"name"`
+			ImageURL string `json:"imageUrl,omitempty"`
+		} `json:"category"`
+	}{}
 
+	createStruct.Category.Name = name
 	if imageURL != nil {
-		createStruct.ImageURL = imageURL.String()
+		createStruct.Category.ImageURL = imageURL.String()
 	}
 
 	request, err := e.NewRequest(http.MethodPost, "api/v1/user-events/categories", createStruct)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := e.Do(request)
 	if err != nil {
 		return nil, err
@@ -117,8 +147,11 @@ func (e *EventsService) CreateCategory(name string, imageURL *url.URL) (*EventCa
 	return &newCategory, nil
 }
 
-func (e *EventsService) ListCategories() ([]EventCategory, error) {
+func (e *eventsService) ListCategories() ([]EventCategory, error) {
 	request, err := e.NewRequest(http.MethodGet, "/api/v1/user-events/categories", nil)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := e.Do(request)
 	if err != nil {
 		return nil, err
@@ -137,11 +170,11 @@ func (e *EventsService) ListCategories() ([]EventCategory, error) {
 	return newCategory, nil
 }
 
-func (e *EventsService) DeleteCategory(id string) {
+func (e *eventsService) DeleteCategory(id string) {
 	panic("implement me")
 }
 
-func (e *EventsService) CreateSource(name string, imageURL *url.URL) (*EventSource, error) {
+func (e *eventsService) CreateSource(name string, imageURL *url.URL) (*EventSource, error) {
 	createStruct := struct {
 		Source struct {
 			Name     string `json:"name"`
@@ -156,6 +189,9 @@ func (e *EventsService) CreateSource(name string, imageURL *url.URL) (*EventSour
 	}
 
 	request, err := e.NewRequest(http.MethodPost, "api/v1/user-events/sources", createStruct)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := e.Do(request)
 	if err != nil {
 		return nil, err
@@ -174,8 +210,11 @@ func (e *EventsService) CreateSource(name string, imageURL *url.URL) (*EventSour
 	return &newSource, nil
 }
 
-func (e *EventsService) ListSources() ([]EventSource, error) {
+func (e *eventsService) ListSources() ([]EventSource, error) {
 	request, err := e.NewRequest(http.MethodGet, "api/v1/user-events/sources", nil)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := e.Do(request)
 	if err != nil {
 		return nil, err
@@ -194,6 +233,6 @@ func (e *EventsService) ListSources() ([]EventSource, error) {
 	return newSource, nil
 }
 
-func (e *EventsService) DeleteSource() {
+func (e *eventsService) DeleteSource() {
 	panic("implement me")
 }

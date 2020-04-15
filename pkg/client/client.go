@@ -15,7 +15,7 @@ import (
 )
 
 type AnodotClient struct {
-	serverURL *url.URL
+	serverURL url.URL
 	token     string
 
 	httpClient *http.Client
@@ -26,20 +26,25 @@ func (c *AnodotClient) HTTPClient() *http.Client {
 }
 
 func (c *AnodotClient) AnodotURL() url.URL {
-	return *c.serverURL
+	return c.serverURL
 }
 
 func (c *AnodotClient) Token() string {
 	return c.token
 }
 
-func NewAnodotClient(anodotURL url.URL, apiToken string, httpClient *http.Client) (*AnodotClient, error) {
+func NewAnodotClient(anodotURL string, apiToken string, httpClient *http.Client) (*AnodotClient, error) {
 
 	if len(strings.TrimSpace(apiToken)) == 0 {
 		return nil, fmt.Errorf("anodot api token should not be blank")
 	}
 
-	submitter := AnodotClient{token: apiToken, serverURL: &anodotURL, httpClient: httpClient}
+	parsedUrl, err := url.Parse(anodotURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse anodotURL: %s", err.Error())
+	}
+
+	submitter := AnodotClient{token: apiToken, serverURL: *parsedUrl, httpClient: httpClient}
 	if httpClient == nil {
 		client := http.Client{Timeout: 30 * time.Second}
 
@@ -86,7 +91,7 @@ func (c *AnodotClient) NewRequest(method, urlStr string, body interface{}) (*htt
 	}
 
 	//TODO change this
-	req.Header.Set("User-Agent", "anodot-api-client")
+	req.Header.Set("User-Agent", "anodot-go-apiclient")
 
 	return req, nil
 }

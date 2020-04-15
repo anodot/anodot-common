@@ -6,25 +6,19 @@ import (
 	"github.com/anodot/anodot-common/pkg/client"
 	"github.com/anodot/anodot-common/pkg/common"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"reflect"
 	"testing"
 	"time"
 )
 
-func TestCreateEvent(t *testing.T) {
+func TestCreateEventSuccessful(t *testing.T) {
 	c, mux, _, teardown := setup()
 	defer teardown()
 
-	mux.HandleFunc("/api/v1/user-events", func(w http.ResponseWriter, r *http.Request) {
-		testMethod(t, r, "POST")
-		testTokenPresent(t, r)
-
-		expectedBody := `{
+	createBody := `{
   "event": {
     "title": "deployment started on myServer",
     "description": "my description",
@@ -39,19 +33,11 @@ func TestCreateEvent(t *testing.T) {
     "startDate": 1415792726
   }
 }`
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		equal, err := JSONBytesEqual(body, []byte(expectedBody))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !equal {
-			t.Fatalf("Request body = %+v, want: %+v", string(body), expectedBody)
-		}
+	mux.HandleFunc("/api/v1/user-events", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "POST")
+		testTokenPresent(t, r, "test_1234")
+		testBody(t, r, createBody)
 
 		fmt.Fprint(w,
 			`
@@ -74,7 +60,7 @@ func TestCreateEvent(t *testing.T) {
 		)
 	})
 
-	eventsService := EventsService{c}
+	eventsService := eventsService{c}
 
 	layout := "2006-01-02T15:04:05.000Z"
 	str := "2014-11-12T11:45:26.371Z"
@@ -83,34 +69,90 @@ func TestCreateEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	properties := []struct {
-		Key   string `json:"key"`
-		Value string `json:"value"`
-	}{{Key: "service", Value: "myService"}}
-
+	eventProperties := []EventProperties{{Key: "service", Value: "myService"}}
 	_, err = eventsService.Create(Event{
 		Title:       "deployment started on myServer",
 		Description: "my description",
 		Category:    "deployments",
 		Source:      "chef",
-		Properties:  properties,
-		StartDate:   common.AnodotTimestamp{ts},
+		Properties:  eventProperties,
+		StartDate:   common.AnodotTimestamp{Time: ts},
 		EndDate:     nil,
 	})
 	if err != nil {
-		t.Errorf("eventsService.ListCategories returned error: %v", err)
+		t.Errorf("eventsService.Create returned error: %v", err)
+	}
+}
+
+func TestCreateEventError(t *testing.T) {
+	c, mux, _, teardown := setup()
+	defer teardown()
+
+	createBody := `{
+  "event": {
+    "title": "deployment started on myServer",
+    "description": "my description",
+    "category": "deployments",
+    "source": "chef",
+    "properties": [
+      {
+        "key": "service",
+        "value": "myService"
+      }
+    ],
+    "startDate": 1415792726
+  }
+}`
+
+	mux.HandleFunc("/api/v1/user-events", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "POST")
+		testTokenPresent(t, r, "test_1234")
+		testBody(t, r, createBody)
+
+		w.WriteHeader(400)
+		fmt.Fprint(w,
+			`
+{"errors":[{"index":null,"error":3030,"description":"cannot create duplicate event"}]}
+`,
+		)
+	})
+
+	eventsService := eventsService{c}
+
+	layout := "2006-01-02T15:04:05.000Z"
+	str := "2014-11-12T11:45:26.371Z"
+	ts, err := time.Parse(layout, str)
+	if err != nil {
+		t.Fatal(err)
 	}
 
+	eventProperties := []EventProperties{{Key: "service", Value: "myService"}}
+	_, err = eventsService.Create(Event{
+		Title:       "deployment started on myServer",
+		Description: "my description",
+		Category:    "deployments",
+		Source:      "chef",
+		Properties:  eventProperties,
+		StartDate:   common.AnodotTimestamp{Time: ts},
+		EndDate:     nil,
+	})
+	if err == nil {
+		t.Errorf("eventsService.Create should return error error")
+	}
+
+	excpectedErrorMessage := "[{Description:cannot create duplicate event Error:3030 Index:}]\n"
+	if err.Error() != excpectedErrorMessage {
+		t.Errorf("wrong error message \n got: %v\n want: %v", err.Error(), excpectedErrorMessage)
+	}
 }
 
 func TestListCategories(t *testing.T) {
-	os.Setenv("ANODOT_HTTP_DEBUG_ENABLED", "true")
 	c, mux, _, teardown := setup()
 	defer teardown()
 
 	mux.HandleFunc("/api/v1/user-events/categories", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
-		testTokenPresent(t, r)
+		testTokenPresent(t, r, "test_1234")
 		fmt.Fprint(w,
 			`
 [
@@ -131,7 +173,7 @@ func TestListCategories(t *testing.T) {
 		)
 	})
 
-	eventsService := EventsService{c}
+	eventsService := eventsService{c}
 
 	artifacts, err := eventsService.ListCategories()
 	if err != nil {
@@ -163,10 +205,7 @@ func setup() (c *client.AnodotClient, mux *http.ServeMux, serverURL string, tear
 	server := httptest.NewServer(mux)
 
 	u, _ := url.Parse(server.URL)
-
-	log.Println(u)
-
-	c, err := client.NewAnodotClient(*u, "test", nil)
+	c, err := client.NewAnodotClient(u.String(), "test_1234", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -181,12 +220,30 @@ func testMethod(t *testing.T, r *http.Request, want string) {
 	}
 }
 
-func testTokenPresent(t *testing.T, r *http.Request) {
+func testTokenPresent(t *testing.T, r *http.Request, want string) {
 	t.Helper()
 	values, _ := url.ParseQuery(r.URL.RawQuery)
-	gotToken := values.Get("token")
-	if gotToken != "test" {
-		t.Errorf("Request method: %v, want %v", gotToken, "test")
+	actualToken := values.Get("token")
+	if actualToken != want {
+		t.Errorf("Wrong api token: '%s', want: '%s'", actualToken, want)
+	}
+}
+
+func testBody(t *testing.T, r *http.Request, want string) {
+	t.Helper()
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	equal, err := JSONBytesEqual(body, []byte(want))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !equal {
+		t.Fatalf("Request body = %+v, want: %+v", string(body), want)
 	}
 }
 

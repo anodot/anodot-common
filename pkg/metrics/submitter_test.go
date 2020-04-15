@@ -18,7 +18,7 @@ func TestSubmitter(t *testing.T) {
 	}
 
 	metrics := make([]Anodot20Metric, 0)
-	metric := Anodot20Metric{Properties: map[string]string{"what": "test2", "target_type": "gauge", "source": "gotest"}, Timestamp: common.AnodotTimestamp{ts}, Value: 1, Tags: map[string]string{}}
+	metric := Anodot20Metric{Properties: map[string]string{"what": "test2", "target_type": "gauge", "source": "gotest"}, Timestamp: common.AnodotTimestamp{Time: ts}, Value: 1, Tags: map[string]string{}}
 	metrics = append(metrics, metric)
 	metrics = append(metrics, metric)
 
@@ -66,7 +66,7 @@ func TestSpecialChars(t *testing.T) {
 	for _, v := range testData {
 
 		t.Run(v.description, func(t *testing.T) {
-			metric := Anodot20Metric{Properties: map[string]string{"what": v.in, "target_type": "gauge", v.in: "remote_write"}, Timestamp: common.AnodotTimestamp{t1}, Value: 1, Tags: map[string]string{"key": v.in, v.in: "value"}}
+			metric := Anodot20Metric{Properties: map[string]string{"what": v.in, "target_type": "gauge", v.in: "remote_write"}, Timestamp: common.AnodotTimestamp{Time: t1}, Value: 1, Tags: map[string]string{"key": v.in, v.in: "value"}}
 
 			bytes, err := json.Marshal(&metric)
 			if err != nil {
