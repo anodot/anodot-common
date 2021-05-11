@@ -161,20 +161,31 @@ func NewAnodot20Client(anodotURL url.URL, apiToken string, httpClient *http.Clie
 }
 
 func (s *Anodot20Client) SubmitMetrics(metrics []Anodot20Metric) (AnodotResponse, error) {
-	s.ServerURL.Path = "/api/v1/metrics"
+	return s.sendMetrics(metrics, "/api/v1/metrics")
 
-	q := s.ServerURL.Query()
+}
+
+func (s *Anodot20Client) SubmitMonitoringMetrics(metrics []Anodot20Metric) (AnodotResponse, error) {
+	return s.sendMetrics(metrics, "/api/v1/agents")
+}
+
+func (s *Anodot20Client) sendMetrics(metrics []Anodot20Metric, endpoint string) (AnodotResponse, error) {
+
+	sUrl := *s.ServerURL
+	sUrl.Path = endpoint
+
+	q := sUrl.Query()
 	q.Set("token", s.Token)
 	q.Set("protocol", "anodot20")
 
-	s.ServerURL.RawQuery = q.Encode()
+	sUrl.RawQuery = q.Encode()
 
 	b, e := json.Marshal(metrics)
 	if e != nil {
 		return nil, fmt.Errorf("Failed to parse message:" + e.Error())
 	}
 
-	r, _ := http.NewRequest(http.MethodPost, s.ServerURL.String(), bytes.NewBuffer(b))
+	r, _ := http.NewRequest(http.MethodPost, sUrl.String(), bytes.NewBuffer(b))
 	r.Header.Add("Content-Type", "application/json")
 
 	resp, err := s.client.Do(r)
