@@ -161,64 +161,31 @@ func NewAnodot20Client(anodotURL url.URL, apiToken string, httpClient *http.Clie
 }
 
 func (s *Anodot20Client) SubmitMetrics(metrics []Anodot20Metric) (AnodotResponse, error) {
-	s.ServerURL.Path = "/api/v1/metrics"
+	return s.sendMetrics(metrics, "/api/v1/metrics")
 
-	q := s.ServerURL.Query()
-	q.Set("token", s.Token)
-	q.Set("protocol", "anodot20")
-
-	s.ServerURL.RawQuery = q.Encode()
-
-	b, e := json.Marshal(metrics)
-	if e != nil {
-		return nil, fmt.Errorf("Failed to parse message:" + e.Error())
-	}
-
-	r, _ := http.NewRequest(http.MethodPost, s.ServerURL.String(), bytes.NewBuffer(b))
-	r.Header.Add("Content-Type", "application/json")
-
-	resp, err := s.client.Do(r)
-	anodotResponse := &CreateResponse{HttpResponse: resp}
-	if err != nil {
-		return anodotResponse, err
-	}
-
-	if resp.StatusCode != 200 {
-		return anodotResponse, fmt.Errorf("http error: %d", resp.StatusCode)
-	}
-
-	if resp.Body == nil {
-		return anodotResponse, fmt.Errorf("empty response body")
-	}
-
-	bodyBytes, _ := ioutil.ReadAll(resp.Body)
-	err = json.Unmarshal(bodyBytes, anodotResponse)
-	if err != nil {
-		return anodotResponse, fmt.Errorf("failed to parse Anodot sever response: %w ", err)
-	}
-
-	if anodotResponse.HasErrors() {
-		return anodotResponse, errors.New(anodotResponse.ErrorMessage())
-	} else {
-		return anodotResponse, nil
-	}
 }
 
 func (s *Anodot20Client) SubmitMonitoringMetrics(metrics []Anodot20Metric) (AnodotResponse, error) {
-	s.ServerURL.Path = "/api/v1/agents"
+	return s.sendMetrics(metrics, "/api/v1/agents")
+}
 
-	q := s.ServerURL.Query()
+func (s *Anodot20Client) sendMetrics(metrics []Anodot20Metric, endpoint string) (AnodotResponse, error) {
+
+	sUrl := *s.ServerURL
+	sUrl.Path = endpoint
+
+	q := sUrl.Query()
 	q.Set("token", s.Token)
 	q.Set("protocol", "anodot20")
 
-	s.ServerURL.RawQuery = q.Encode()
+	sUrl.RawQuery = q.Encode()
 
 	b, e := json.Marshal(metrics)
 	if e != nil {
 		return nil, fmt.Errorf("Failed to parse message:" + e.Error())
 	}
 
-	r, _ := http.NewRequest(http.MethodPost, s.ServerURL.String(), bytes.NewBuffer(b))
+	r, _ := http.NewRequest(http.MethodPost, sUrl.String(), bytes.NewBuffer(b))
 	r.Header.Add("Content-Type", "application/json")
 
 	resp, err := s.client.Do(r)
