@@ -59,7 +59,7 @@ func NewAnodot30Client(anodotURL url.URL, token *AnodotToken, httpClient *http.C
 	return &submitter, nil
 }
 
-func (c *Anodot30Client) SubmitMetrics(metrics []AnodotMetrics30) (AnodotResponse, error) {
+func (c *Anodot30Client) SubmitMetrics(metrics []AnodotMetrics30) (*SubmitMetricsResponse, error) {
 	if c.Token.Type != "api" {
 		return nil, fmt.Errorf("AnodotToken with type api should be provided for metrics submit ")
 	}
@@ -86,19 +86,18 @@ func (c *Anodot30Client) SubmitMetrics(metrics []AnodotMetrics30) (AnodotRespons
 	anodotResponse := &SubmitMetricsResponse{HttpResponse: resp}
 
 	if resp.Body == nil {
-		return nil, fmt.Errorf("empty response body")
+		return anodotResponse, fmt.Errorf("empty response body")
 	}
 
 	bodyBytes, _ := ioutil.ReadAll(resp.Body)
 	err = json.Unmarshal(bodyBytes, anodotResponse)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
+		return anodotResponse, fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
 	}
-
 	return anodotResponse, nil
 }
 
-func (c *Anodot30Client) CreateSchema(schema AnodotMetricsSchema) (AnodotResponse, error) {
+func (c *Anodot30Client) CreateSchema(schema AnodotMetricsSchema) (*CreateSchemaResponse, error) {
 	if c.Token.Type != "bearer" {
 		return nil, fmt.Errorf("AnodotToken with type bearer should be provided for schema creation ")
 	}
@@ -133,53 +132,81 @@ func (c *Anodot30Client) CreateSchema(schema AnodotMetricsSchema) (AnodotRespons
 
 		err = json.Unmarshal(bodyBytes, &anodotResponse.Error)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
+			return anodotResponse, fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
 		}
+		return anodotResponse, nil
 	}
 
+	schemaCreated := struct {
+		Schema AnodotMetricsSchema `json:"schema"`
+	}{
+		Schema: AnodotMetricsSchema{},
+	}
+
+	err = json.Unmarshal(bodyBytes, &schemaCreated)
+	if err != nil {
+		return anodotResponse, err
+	}
+	fmt.Println(schemaCreated)
+	anodotResponse.SchemaId = &schemaCreated.Schema.Id
 	return anodotResponse, nil
 }
 
-func (c *Anodot30Client) GetSchemas() ([]AnodotMetricsSchema, error) {
+func (c *Anodot30Client) GetSchemas() (*GetSchemaResponse, error) {
 
 	if c.Token.Type != "bearer" {
 		return nil, fmt.Errorf("AnodotToken with type bearer should be provided")
 	}
+
 	var bearer = "Bearer " + c.Token.Token
+
 	sUrl := c.ServerURL
 	sUrl.Path = "/api/v2/stream-schemas/schemas"
 
 	r, _ := http.NewRequest(http.MethodGet, sUrl.String(), nil)
 
 	r.Header.Set("Authorization", bearer)
+
 	resp, err := c.client.Do(r)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("http error: %d", resp.StatusCode)
+	anodotResponse := &GetSchemaResponse{HttpResponse: resp}
+	if resp.Body == nil {
+		return anodotResponse, fmt.Errorf("empty response body")
 	}
+
+	bodyBytes, _ := ioutil.ReadAll(resp.Body)
 
 	if resp.Body == nil {
 		return nil, fmt.Errorf("empty response body")
 	}
 
-	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode/100 != 2 {
+		err = json.Unmarshal(bodyBytes, &anodotResponse.Error)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
+		}
+		return anodotResponse, nil
+	}
 
 	schemasTmp := make([]StreamSchemaWrapper, 0)
 	schemas := make([]AnodotMetricsSchema, 0)
 
 	err = json.Unmarshal(bodyBytes, &schemasTmp)
 	if err != nil {
-		return nil, err
+		return anodotResponse, err
 	}
 
 	for _, s := range schemasTmp {
 		schemas = append(schemas, s.Wrapper.Schema)
 	}
+	fmt.Println(schemas)
+	anodotResponse.Schemas = schemas
 
-	return schemas, nil
+	fmt.Println(anodotResponse.Schemas)
+	return anodotResponse, nil
 }
 
 type debugHTTPTransport struct {

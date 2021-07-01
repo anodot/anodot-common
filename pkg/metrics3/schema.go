@@ -58,3 +58,26 @@ func (r *CreateSchemaResponse) ErrorMessage() string {
 func (r *CreateSchemaResponse) RawResponse() *http.Response {
 	return r.HttpResponse
 }
+
+type GetSchemaResponse struct {
+	Schemas []AnodotMetricsSchema
+	Error   *struct {
+		Status        int    `json:"status"`
+		Name          string `json:"name"`
+		AndtErrorCode int    `json:"andtErrorCode"`
+		Path          string `json:"path"`
+	}
+	HttpResponse *http.Response `json:"-"`
+}
+
+func (r *GetSchemaResponse) HasErrors() bool {
+	return r.Error != nil
+}
+
+func (r *GetSchemaResponse) ErrorMessage() string {
+	return fmt.Sprintf("%+v\n", r.Error)
+}
+
+func (r *GetSchemaResponse) RawResponse() *http.Response {
+	return r.HttpResponse
+}
