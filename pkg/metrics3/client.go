@@ -16,7 +16,7 @@ import (
 
 const (
 	ApiToken  string = "api"
-	DataToken        = "data"
+	DataToken string = "data"
 )
 
 type AnodotToken struct {
@@ -98,7 +98,8 @@ func NewAnodot30Client(anodotURL url.URL, token *AnodotToken, httpClient *http.C
 func (c *Anodot30Client) GetBearerToken() (*string, error) {
 	// Token valid 24 hours, so if BearerToken field is null or token expired
 	// needs to refresh it, otherwise, returns existed token
-	if c.BearerToken == nil || time.Now().Sub(c.BearerToken.timestemp) > 24*time.Hour {
+
+	if c.BearerToken == nil || time.Since(c.BearerToken.timestemp) > 24*time.Hour {
 		resp, err := c.refreshBearerToken()
 		if err != nil {
 			return nil, err
@@ -130,7 +131,7 @@ func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
 
 	sUrl.RawQuery = q.Encode()
 
-	b, err := json.Marshal(
+	b, _ := json.Marshal(
 		struct {
 			RefreshToken string `json:"refreshToken"`
 		}{
