@@ -14,6 +14,11 @@ import (
 	"time"
 )
 
+const (
+	ApiToken  string = "api"
+	DataToken        = "data"
+)
+
 type AnodotToken struct {
 	Token string
 	Type  string
@@ -23,10 +28,13 @@ func NewAnoToken(token string, ttype string) (*AnodotToken, error) {
 	if len(strings.TrimSpace(token)) == 0 {
 		return nil, fmt.Errorf("token can't be blank")
 	}
-	if ttype != "api" && ttype != "bearer" {
-		return nil, fmt.Errorf("token type can be api or bearer")
+
+	switch ttype {
+	case ApiToken, DataToken:
+		return &AnodotToken{Token: token, Type: ttype}, nil
 	}
-	return &AnodotToken{token, ttype}, nil
+
+	return nil, fmt.Errorf("token type can be api or data")
 }
 
 type AnodotResponse interface {
@@ -35,17 +43,44 @@ type AnodotResponse interface {
 	RawResponse() *http.Response
 }
 
+type RefreshBearerResponse struct {
+	Bearer string
+	Error  *struct {
+		Status        int    `json:"status"`
+		Name          string `json:"name"`
+		AndtErrorCode int    `json:"andtErrorCode"`
+		Path          string `json:"path"`
+	}
+	HttpResponse *http.Response `json:"-"`
+}
+
+func (r *RefreshBearerResponse) HasErrors() bool {
+	return r.Error != nil
+}
+
+func (r *RefreshBearerResponse) ErrorMessage() string {
+	return fmt.Sprintf("%+v\n", r.Error)
+}
+
+func (r *RefreshBearerResponse) RawResponse() *http.Response {
+	return r.HttpResponse
+}
+
 type Anodot30Client struct {
-	ServerURL *url.URL
-	Token     *AnodotToken
-	client    *http.Client
+	ServerURL   *url.URL
+	Token       *AnodotToken
+	client      *http.Client
+	BearerToken *struct {
+		timestemp time.Time
+		token     string
+	}
 }
 
 func NewAnodot30Client(anodotURL url.URL, token *AnodotToken, httpClient *http.Client) (*Anodot30Client, error) {
 	if token == nil {
 		return nil, fmt.Errorf("anodot token can't be nil")
 	}
-	submitter := Anodot30Client{Token: token, ServerURL: &anodotURL, client: httpClient}
+	submitter := Anodot30Client{Token: token, ServerURL: &anodotURL, client: httpClient, BearerToken: nil}
 	if httpClient == nil {
 		client := http.Client{Timeout: 30 * time.Second}
 
@@ -57,6 +92,77 @@ func NewAnodot30Client(anodotURL url.URL, token *AnodotToken, httpClient *http.C
 	}
 
 	return &submitter, nil
+}
+
+func (c *Anodot30Client) GetBearerToken() (*string, error) {
+	if c.BearerToken == nil || time.Now().Sub(c.BearerToken.timestemp) > 24*time.Hour {
+		resp, err := c.refreshBearerToken()
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.HasErrors() {
+			return nil, fmt.Errorf("failed to refresh toke: %v", resp.ErrorMessage())
+		}
+
+		c.BearerToken = &struct {
+			timestemp time.Time
+			token     string
+		}{time.Now(), resp.Bearer}
+
+	}
+	return &c.BearerToken.token, nil
+}
+
+func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
+
+	if c.Token.Type != ApiToken {
+		return nil, fmt.Errorf("bearer token can be refreshed only with api token")
+	}
+	sUrl := *c.ServerURL
+	sUrl.Path = "api/v2/access-token"
+
+	q := sUrl.Query()
+	q.Set("responseformat", "JSON")
+
+	sUrl.RawQuery = q.Encode()
+
+	b, err := json.Marshal(
+		struct {
+			RefreshToken string `json:"refreshToken"`
+		}{
+			c.Token.Token,
+		},
+	)
+
+	r, _ := http.NewRequest(http.MethodPost, sUrl.String(), bytes.NewBuffer(b))
+	r.Header.Add("Content-Type", "application/json")
+
+	resp, err := c.client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+
+	refreshResponse := RefreshBearerResponse{HttpResponse: resp}
+
+	if resp.StatusCode/100 != 2 {
+		err = json.Unmarshal(bodyBytes, &refreshResponse.Error)
+		if err != nil {
+			return &refreshResponse, fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
+		}
+		return &refreshResponse, nil
+	}
+
+	responseJson := struct{ Token string }{}
+
+	err = json.Unmarshal(bodyBytes, &responseJson)
+	if err != nil {
+		return &refreshResponse, fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
+	}
+
+	refreshResponse.Bearer = responseJson.Token
+	return &refreshResponse, nil
 }
 
 func (c *Anodot30Client) SubmitMetrics(metrics []AnodotMetrics30) (*SubmitMetricsResponse, error) {
@@ -72,9 +178,9 @@ func (c *Anodot30Client) SubmitMetrics(metrics []AnodotMetrics30) (*SubmitMetric
 	q.Set("protocol", "anodot30")
 	sUrl.RawQuery = q.Encode()
 
-	b, e := json.Marshal(metrics)
-	if e != nil {
-		return nil, fmt.Errorf("Failed to parse schema:" + e.Error())
+	b, err := json.Marshal(metrics)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse schema:" + err.Error())
 	}
 	r, _ := http.NewRequest(http.MethodPost, sUrl.String(), bytes.NewBuffer(b))
 	r.Header.Add("Content-Type", "application/json")
@@ -147,7 +253,7 @@ func (c *Anodot30Client) CreateSchema(schema AnodotMetricsSchema) (*CreateSchema
 	if err != nil {
 		return anodotResponse, err
 	}
-	fmt.Println(schemaCreated)
+
 	anodotResponse.SchemaId = &schemaCreated.Schema.Id
 	return anodotResponse, nil
 }
