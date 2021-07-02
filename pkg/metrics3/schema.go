@@ -41,6 +41,7 @@ type CreateSchemaResponse struct {
 	Error    *struct {
 		Status        int    `json:"status"`
 		Name          string `json:"name"`
+		Message       string `json:"message"`
 		AndtErrorCode int    `json:"andtErrorCode"`
 		Path          string `json:"path"`
 	}
@@ -64,6 +65,7 @@ type GetSchemaResponse struct {
 	Error   *struct {
 		Status        int    `json:"status"`
 		Name          string `json:"name"`
+		Message       string `json:"message"`
 		AndtErrorCode int    `json:"andtErrorCode"`
 		Path          string `json:"path"`
 	}
