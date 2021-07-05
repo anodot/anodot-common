@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	DATA_TOKEN = "your-data-token"
-	API_TOKEN  = "your-api-token"
+	DATA_TOKEN = "your-data-collection-token"
+	ACESSS_KEY = "your-access-key"
 )
 
 var schema metrics3.AnodotMetricsSchema = metrics3.AnodotMetricsSchema{
@@ -57,11 +57,11 @@ func main() {
 
 	url, _ := url.Parse("https://app.anodot.com")
 
-	dataToken, err := metrics3.NewAnoToken(DATA_TOKEN, metrics3.DataToken)
+	dataToken, err := metrics3.NewAnoToken(DATA_TOKEN, metrics3.DataCollectionToken)
 	if err != nil {
 		panic(err)
 	}
-	apiToken, err := metrics3.NewAnoToken(API_TOKEN, metrics3.ApiToken)
+	apiToken, err := metrics3.NewAnoToken(ACESSS_KEY, metrics3.AccessKey)
 	if err != nil {
 		panic(err)
 	}
@@ -92,6 +92,7 @@ func main() {
 	for _, s := range respGetschemas.Schemas {
 		if s.Name == "schema_test" {
 			schemaId = s.Id
+			break
 		}
 	}
 
@@ -125,9 +126,5 @@ func main() {
 	respDeleteSchema, err := client.DeleteSchema(schemaId)
 	if respDeleteSchema.HasErrors() {
 		fmt.Println(respDeleteSchema.ErrorMessage())
-	}
-
-	if respWatermark.HasErrors() {
-		fmt.Println(respWatermark.ErrorMessage())
 	}
 }

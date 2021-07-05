@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	ApiToken  string = "api"
-	DataToken string = "data"
+	AccessKey           string = "api"
+	DataCollectionToken string = "data"
 )
 
 type AnodotToken struct {
@@ -30,11 +30,11 @@ func NewAnoToken(token string, ttype string) (*AnodotToken, error) {
 	}
 
 	switch ttype {
-	case ApiToken, DataToken:
+	case AccessKey, DataCollectionToken:
 		return &AnodotToken{Value: token, Type: ttype}, nil
 	}
 
-	return nil, fmt.Errorf("token type can be api or data")
+	return nil, fmt.Errorf("token type can be DataCollectionToken or AccessKey")
 }
 
 type AnodotResponse interface {
@@ -124,7 +124,7 @@ func (c *Anodot30Client) GetBearerToken() (*string, error) {
 
 func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
 
-	if c.Token.Type != ApiToken {
+	if c.Token.Type != AccessKey {
 		return nil, fmt.Errorf("bearer token can be refreshed only with api token")
 	}
 	sUrl := *c.ServerURL
@@ -177,7 +177,7 @@ func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
 }
 
 func (c *Anodot30Client) SubmitMetrics(metrics []AnodotMetrics30) (*SubmitMetricsResponse, error) {
-	if c.Token.Type != DataToken {
+	if c.Token.Type != DataCollectionToken {
 		return nil,
 			fmt.Errorf("AnodotToken with type api should be provided for metrics submit ")
 	}
@@ -395,7 +395,7 @@ func (c *Anodot30Client) GetSchemas() (*GetSchemaResponse, error) {
 }
 
 func (c *Anodot30Client) SubmitWatermark(schemaId string, watermark AnodotTimestamp) (*SubmitWatermarkResponse, error) {
-	if c.Token.Type != DataToken {
+	if c.Token.Type != DataCollectionToken {
 		return nil, fmt.Errorf("AnodotToken with type api should be provided for metrics submit ")
 	}
 
