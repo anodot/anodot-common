@@ -43,6 +43,29 @@ type AnodotResponse interface {
 	RawResponse() *http.Response
 }
 
+type Api30Response struct {
+	Error *struct {
+		Status        int    `json:"status"`
+		Name          string `json:"name"`
+		Message       string `json:"message"`
+		AndtErrorCode int    `json:"andtErrorCode"`
+		Path          string `json:"path"`
+	}
+	HttpResponse *http.Response `json:"-"`
+}
+
+func (r *Api30Response) HasErrors() bool {
+	return r.Error != nil
+}
+
+func (r *Api30Response) ErrorMessage() string {
+	return fmt.Sprintf("%+v\n", r.Error)
+}
+
+func (r *Api30Response) RawResponse() *http.Response {
+	return r.HttpResponse
+}
+
 type RefreshBearerResponse struct {
 	Bearer string
 	Error  *struct {
@@ -236,7 +259,9 @@ func (c *Anodot30Client) CreateSchema(schema AnodotMetricsSchema) (*CreateSchema
 	if err != nil {
 		return nil, err
 	}
-	anodotResponse := &CreateSchemaResponse{HttpResponse: resp}
+
+	anodotResponse := &CreateSchemaResponse{}
+	anodotResponse.HttpResponse = resp
 
 	if resp.Body == nil {
 		return anodotResponse, fmt.Errorf("empty response body")
@@ -268,6 +293,58 @@ func (c *Anodot30Client) CreateSchema(schema AnodotMetricsSchema) (*CreateSchema
 	return anodotResponse, nil
 }
 
+func (c *Anodot30Client) DeleteSchema(schemaId string) (*DeleteSchemaResponse, error) {
+	token, err := c.GetBearerToken()
+	if err != nil {
+		return nil, err
+	}
+
+	var bearer = "Bearer " + *token
+	sUrl := c.ServerURL
+	sUrl.Path = "api/v2/stream-schemas/" + schemaId
+
+	r, _ := http.NewRequest(http.MethodDelete, sUrl.String(), nil)
+
+	r.Header.Set("Authorization", bearer)
+	r.Header.Add("Content-Type", "application/json")
+
+	resp, err := c.client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+
+	anodotResponse := &DeleteSchemaResponse{}
+	anodotResponse.HttpResponse = resp
+
+	if resp.Body == nil {
+		return anodotResponse, fmt.Errorf("empty response body")
+	}
+
+	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+
+	if resp.StatusCode/100 != 2 {
+		err = json.Unmarshal(bodyBytes, &anodotResponse.Error)
+		fmt.Println(anodotResponse.Error)
+		if err != nil {
+			return anodotResponse,
+				fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
+		}
+		return anodotResponse, nil
+	}
+
+	schemaDeleted := struct {
+		Deleted string `json:"deleted"`
+	}{}
+
+	err = json.Unmarshal(bodyBytes, &schemaDeleted)
+	if err != nil {
+		return anodotResponse, err
+	}
+
+	anodotResponse.SchemaId = &schemaDeleted.Deleted
+	return anodotResponse, nil
+}
+
 func (c *Anodot30Client) GetSchemas() (*GetSchemaResponse, error) {
 
 	token, err := c.GetBearerToken()
@@ -289,7 +366,9 @@ func (c *Anodot30Client) GetSchemas() (*GetSchemaResponse, error) {
 		return nil, err
 	}
 
-	anodotResponse := &GetSchemaResponse{HttpResponse: resp}
+	anodotResponse := &GetSchemaResponse{}
+	anodotResponse.HttpResponse = resp
+
 	if resp.Body == nil {
 		return anodotResponse, fmt.Errorf("empty response body")
 	}

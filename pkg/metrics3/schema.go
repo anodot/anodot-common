@@ -1,10 +1,5 @@
 package metrics3
 
-import (
-	"fmt"
-	"net/http"
-)
-
 type Measurment struct {
 	Base MeasurmentBase
 	Name string
@@ -36,50 +31,19 @@ type StreamSchemaWrapper struct {
 	} `json:"streamSchemaWrapper"`
 }
 
-type CreateSchemaResponse struct {
-	SchemaId *string
-	Error    *struct {
-		Status        int    `json:"status"`
-		Name          string `json:"name"`
-		Message       string `json:"message"`
-		AndtErrorCode int    `json:"andtErrorCode"`
-		Path          string `json:"path"`
-	}
-	HttpResponse *http.Response `json:"-"`
-}
-
-func (r *CreateSchemaResponse) HasErrors() bool {
-	return r.Error != nil
-}
-
-func (r *CreateSchemaResponse) ErrorMessage() string {
-	return fmt.Sprintf("%+v\n", r.Error)
-}
-
-func (r *CreateSchemaResponse) RawResponse() *http.Response {
-	return r.HttpResponse
-}
-
+// Responses for api calls
+// Inherits base methods and fields from ApiResponse structure using composition
 type GetSchemaResponse struct {
 	Schemas []AnodotMetricsSchema
-	Error   *struct {
-		Status        int    `json:"status"`
-		Name          string `json:"name"`
-		Message       string `json:"message"`
-		AndtErrorCode int    `json:"andtErrorCode"`
-		Path          string `json:"path"`
-	}
-	HttpResponse *http.Response `json:"-"`
+	Api30Response
 }
 
-func (r *GetSchemaResponse) HasErrors() bool {
-	return r.Error != nil
+type DeleteSchemaResponse struct {
+	SchemaId *string
+	Api30Response
 }
 
-func (r *GetSchemaResponse) ErrorMessage() string {
-	return fmt.Sprintf("%+v\n", r.Error)
-}
-
-func (r *GetSchemaResponse) RawResponse() *http.Response {
-	return r.HttpResponse
+type CreateSchemaResponse struct {
+	SchemaId *string
+	Api30Response
 }
