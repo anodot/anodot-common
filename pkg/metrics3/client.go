@@ -68,26 +68,7 @@ func (r *Api30Response) RawResponse() *http.Response {
 
 type RefreshBearerResponse struct {
 	Bearer string
-	Error  *struct {
-		Status        int    `json:"status"`
-		Name          string `json:"name"`
-		Message       string `json:"message"`
-		AndtErrorCode int    `json:"andtErrorCode"`
-		Path          string `json:"path"`
-	}
-	HttpResponse *http.Response `json:"-"`
-}
-
-func (r *RefreshBearerResponse) HasErrors() bool {
-	return r.Error != nil
-}
-
-func (r *RefreshBearerResponse) ErrorMessage() string {
-	return fmt.Sprintf("%+v\n", r.Error)
-}
-
-func (r *RefreshBearerResponse) RawResponse() *http.Response {
-	return r.HttpResponse
+	Api30Response
 }
 
 type Anodot30Client struct {
@@ -171,7 +152,8 @@ func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
 	}
 	bodyBytes, _ := ioutil.ReadAll(resp.Body)
 
-	refreshResponse := RefreshBearerResponse{HttpResponse: resp}
+	refreshResponse := RefreshBearerResponse{}
+	refreshResponse.HttpResponse = resp
 
 	if resp.StatusCode/100 != 2 {
 		err = json.Unmarshal(bodyBytes, &refreshResponse.Error)
