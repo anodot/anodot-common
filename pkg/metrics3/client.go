@@ -407,7 +407,7 @@ func (c *Anodot30Client) SubmitWatermark(schemaId string, watermark AnodotTimest
 	q.Set("protocol", "anodot30")
 	sUrl.RawQuery = q.Encode()
 
-	b, err := json.Marshal(
+	b, _ := json.Marshal(
 		struct {
 			SchemaId  string          `json:"schemaId"`
 			Watermark AnodotTimestamp `json:"watermark"`
