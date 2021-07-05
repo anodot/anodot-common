@@ -177,7 +177,7 @@ func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
 }
 
 func (c *Anodot30Client) SubmitMetrics(metrics []AnodotMetrics30) (*SubmitMetricsResponse, error) {
-	if c.Token.Type != ApiToken {
+	if c.Token.Type != DataToken {
 		return nil,
 			fmt.Errorf("AnodotToken with type api should be provided for metrics submit ")
 	}
@@ -201,13 +201,21 @@ func (c *Anodot30Client) SubmitMetrics(metrics []AnodotMetrics30) (*SubmitMetric
 	if err != nil {
 		return nil, err
 	}
-	anodotResponse := &SubmitMetricsResponse{HttpResponse: resp}
+	anodotResponse := &SubmitMetricsResponse{}
+	anodotResponse.HttpResponse = resp
 
 	if resp.Body == nil {
 		return anodotResponse, fmt.Errorf("empty response body")
 	}
 
 	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode/100 != 2 {
+		err = json.Unmarshal(bodyBytes, &anodotResponse)
+		if err != nil {
+			return anodotResponse, fmt.Errorf("http response is differ from 2xx\nfalied to parse response body: %v \n%s", err, string(bodyBytes))
+		}
+	}
+
 	err = json.Unmarshal(bodyBytes, anodotResponse)
 	if err != nil {
 		return anodotResponse,
@@ -384,6 +392,57 @@ func (c *Anodot30Client) GetSchemas() (*GetSchemaResponse, error) {
 	anodotResponse.Schemas = schemas
 
 	return anodotResponse, nil
+}
+
+func (c *Anodot30Client) SubmitWatermark(schemaId string, watermark AnodotTimestamp) (*SubmitWatermarkResponse, error) {
+	if c.Token.Type != DataToken {
+		return nil, fmt.Errorf("AnodotToken with type api should be provided for metrics submit ")
+	}
+
+	sUrl := *c.ServerURL
+	sUrl.Path = "api/v1/metrics/watermark"
+
+	q := sUrl.Query()
+	q.Set("token", c.Token.Value)
+	q.Set("protocol", "anodot30")
+	sUrl.RawQuery = q.Encode()
+
+	b, err := json.Marshal(
+		struct {
+			SchemaId  string          `json:"schemaId"`
+			Watermark AnodotTimestamp `json:"watermark"`
+		}{schemaId, watermark},
+	)
+	r, _ := http.NewRequest(http.MethodPost, sUrl.String(), bytes.NewBuffer(b))
+	r.Header.Add("Content-Type", "application/json")
+
+	resp, err := c.client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	anodotResponse := SubmitWatermarkResponse{}
+	anodotResponse.HttpResponse = resp
+
+	if resp.Body == nil {
+		return &anodotResponse, fmt.Errorf("empty response body")
+	}
+
+	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+
+	if resp.StatusCode/100 != 2 {
+		err = json.Unmarshal(bodyBytes, &anodotResponse)
+		if err != nil {
+			return &anodotResponse, fmt.Errorf("http response is differ from 2xx\nfalied to parse response body: %v \n%s", err, string(bodyBytes))
+		}
+	}
+
+	err = json.Unmarshal(bodyBytes, &anodotResponse)
+	if err != nil {
+		return &anodotResponse,
+			fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
+	}
+
+	return &anodotResponse, nil
 }
 
 type debugHTTPTransport struct {

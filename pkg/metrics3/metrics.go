@@ -60,7 +60,7 @@ func (m *AnodotMetrics30) MarshalJSON() ([]byte, error) {
 	})
 }
 
-type SubmitMetricsResponse struct {
+type Anodot20Response struct {
 	Errors []struct {
 		Description string
 		Error       int64
@@ -69,16 +69,24 @@ type SubmitMetricsResponse struct {
 	HttpResponse *http.Response `json:"-"`
 }
 
-func (r *SubmitMetricsResponse) HasErrors() bool {
+func (r *Anodot20Response) HasErrors() bool {
 	return len(r.Errors) > 0
 }
 
-func (r *SubmitMetricsResponse) ErrorMessage() string {
+func (r *Anodot20Response) ErrorMessage() string {
 	return fmt.Sprintf("%+v\n", r.Errors)
 }
 
-func (r *SubmitMetricsResponse) RawResponse() *http.Response {
+func (r *Anodot20Response) RawResponse() *http.Response {
 	return r.HttpResponse
+}
+
+type SubmitMetricsResponse struct {
+	Anodot20Response
+}
+
+type SubmitWatermarkResponse struct {
+	Anodot20Response
 }
 
 func escape(s string) string {
