@@ -10,32 +10,8 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
-
-const (
-	AccessKey           string = "api"
-	DataCollectionToken string = "data"
-)
-
-type AnodotToken struct {
-	Value string
-	Type  string
-}
-
-func NewAnoToken(token string, ttype string) (*AnodotToken, error) {
-	if len(strings.TrimSpace(token)) == 0 {
-		return nil, fmt.Errorf("token can't be blank")
-	}
-
-	switch ttype {
-	case AccessKey, DataCollectionToken:
-		return &AnodotToken{Value: token, Type: ttype}, nil
-	}
-
-	return nil, fmt.Errorf("token type can be DataCollectionToken or AccessKey")
-}
 
 type AnodotResponse interface {
 	HasErrors() bool
@@ -72,20 +48,22 @@ type RefreshBearerResponse struct {
 }
 
 type Anodot30Client struct {
-	ServerURL   *url.URL
-	Token       *AnodotToken
-	client      *http.Client
-	BearerToken *struct {
+	ServerURL           *url.URL
+	AccessKey           *string
+	DataCollectionToken *string
+	client              *http.Client
+	bearerToken         *struct {
 		timestemp time.Time
 		token     string
 	}
 }
 
-func NewAnodot30Client(anodotURL url.URL, token *AnodotToken, httpClient *http.Client) (*Anodot30Client, error) {
-	if token == nil {
+func NewAnodot30Client(anodotURL url.URL, accessKey *string, dataToken *string, httpClient *http.Client) (*Anodot30Client, error) {
+	if accessKey == nil && dataToken == nil {
 		return nil, fmt.Errorf("anodot token can't be nil")
 	}
-	submitter := Anodot30Client{Token: token, ServerURL: &anodotURL, client: httpClient, BearerToken: nil}
+
+	submitter := Anodot30Client{AccessKey: accessKey, DataCollectionToken: dataToken, ServerURL: &anodotURL, client: httpClient, bearerToken: nil}
 	if httpClient == nil {
 		client := http.Client{Timeout: 30 * time.Second}
 
@@ -103,7 +81,7 @@ func (c *Anodot30Client) GetBearerToken() (*string, error) {
 	// Token valid 24 hours, so if BearerToken field is null or token expired
 	// needs to refresh it, otherwise, returns existed token
 
-	if c.BearerToken == nil || time.Since(c.BearerToken.timestemp) > 24*time.Hour {
+	if c.bearerToken == nil || time.Since(c.bearerToken.timestemp) > 24*time.Hour {
 		resp, err := c.refreshBearerToken()
 		if err != nil {
 			return nil, err
@@ -113,19 +91,19 @@ func (c *Anodot30Client) GetBearerToken() (*string, error) {
 			return nil, fmt.Errorf("failed to refresh toke: %v", resp.ErrorMessage())
 		}
 
-		c.BearerToken = &struct {
+		c.bearerToken = &struct {
 			timestemp time.Time
 			token     string
 		}{time.Now(), resp.Bearer}
 
 	}
-	return &c.BearerToken.token, nil
+	return &c.bearerToken.token, nil
 }
 
 func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
 
-	if c.Token.Type != AccessKey {
-		return nil, fmt.Errorf("bearer token can be refreshed only with api token")
+	if c.AccessKey == nil {
+		return nil, fmt.Errorf("please provide AccesKey for obtain bearer token")
 	}
 	sUrl := *c.ServerURL
 	sUrl.Path = "api/v2/access-token"
@@ -139,7 +117,7 @@ func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
 		struct {
 			RefreshToken string `json:"refreshToken"`
 		}{
-			c.Token.Value,
+			*c.AccessKey,
 		},
 	)
 
@@ -177,16 +155,16 @@ func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
 }
 
 func (c *Anodot30Client) SubmitMetrics(metrics []AnodotMetrics30) (*SubmitMetricsResponse, error) {
-	if c.Token.Type != DataCollectionToken {
+	if c.DataCollectionToken == nil {
 		return nil,
-			fmt.Errorf("AnodotToken with type api should be provided for metrics submit ")
+			fmt.Errorf("DataCollectionToken should be provided for metrics submit ")
 	}
 
 	sUrl := *c.ServerURL
 	sUrl.Path = "api/v1/metrics"
 
 	q := sUrl.Query()
-	q.Set("token", c.Token.Value)
+	q.Set("token", *c.DataCollectionToken)
 	q.Set("protocol", "anodot30")
 	sUrl.RawQuery = q.Encode()
 
@@ -395,15 +373,16 @@ func (c *Anodot30Client) GetSchemas() (*GetSchemaResponse, error) {
 }
 
 func (c *Anodot30Client) SubmitWatermark(schemaId string, watermark AnodotTimestamp) (*SubmitWatermarkResponse, error) {
-	if c.Token.Type != DataCollectionToken {
-		return nil, fmt.Errorf("AnodotToken with type api should be provided for metrics submit ")
+	if c.DataCollectionToken == nil {
+		return nil,
+			fmt.Errorf("DataCollectionToken should be provided for watermark submit ")
 	}
 
 	sUrl := *c.ServerURL
 	sUrl.Path = "api/v1/metrics/watermark"
 
 	q := sUrl.Query()
-	q.Set("token", c.Token.Value)
+	q.Set("token", *c.DataCollectionToken)
 	q.Set("protocol", "anodot30")
 	sUrl.RawQuery = q.Encode()
 

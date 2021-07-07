@@ -8,7 +8,7 @@ import (
 	"github.com/anodot/anodot-common/pkg/metrics3"
 )
 
-const (
+var (
 	DATA_TOKEN = "your-data-collection-token"
 	ACESSS_KEY = "your-access-key"
 )
@@ -57,16 +57,7 @@ func main() {
 
 	url, _ := url.Parse("https://app.anodot.com")
 
-	dataToken, err := metrics3.NewAnoToken(DATA_TOKEN, metrics3.DataCollectionToken)
-	if err != nil {
-		panic(err)
-	}
-	apiToken, err := metrics3.NewAnoToken(ACESSS_KEY, metrics3.AccessKey)
-	if err != nil {
-		panic(err)
-	}
-
-	client, err := metrics3.NewAnodot30Client(*url, apiToken, nil)
+	client, err := metrics3.NewAnodot30Client(*url, &ACESSS_KEY, &DATA_TOKEN, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -95,9 +86,6 @@ func main() {
 			break
 		}
 	}
-
-	// Change toke to data token for metrics related requests
-	client.Token = dataToken
 
 	// Set schema id for metrics
 	metrics.SchemaId = schemaId
