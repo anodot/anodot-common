@@ -42,8 +42,9 @@ func (r *Api30Response) RawResponse() *http.Response {
 	return r.HttpResponse
 }
 
-type RefreshBearerResponse struct {
-	Bearer string
+type refreshBearerResponse struct {
+	refreshTime time.Time
+	bearer      string
 	Api30Response
 }
 
@@ -94,13 +95,13 @@ func (c *Anodot30Client) GetBearerToken() (*string, error) {
 		c.bearerToken = &struct {
 			timestemp time.Time
 			token     string
-		}{time.Now(), resp.Bearer}
+		}{resp.refreshTime, resp.bearer}
 
 	}
 	return &c.bearerToken.token, nil
 }
 
-func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
+func (c *Anodot30Client) refreshBearerToken() (*refreshBearerResponse, error) {
 
 	if c.AccessKey == nil {
 		return nil, fmt.Errorf("please provide AccesKey for obtain bearer token")
@@ -130,7 +131,7 @@ func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
 	}
 	bodyBytes, _ := ioutil.ReadAll(resp.Body)
 
-	refreshResponse := RefreshBearerResponse{}
+	refreshResponse := refreshBearerResponse{}
 	refreshResponse.HttpResponse = resp
 
 	if resp.StatusCode/100 != 2 {
@@ -150,7 +151,8 @@ func (c *Anodot30Client) refreshBearerToken() (*RefreshBearerResponse, error) {
 			fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
 	}
 
-	refreshResponse.Bearer = responseJson.Token
+	refreshResponse.bearer = responseJson.Token
+	refreshResponse.refreshTime = time.Now()
 	return &refreshResponse, nil
 }
 
