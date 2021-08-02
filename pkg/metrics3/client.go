@@ -426,6 +426,50 @@ func (c *Anodot30Client) SubmitWatermark(schemaId string, watermark AnodotTimest
 	return &anodotResponse, nil
 }
 
+func (c *Anodot30Client) SendToBC(bcData Pipeline) (*Api30Response, error) {
+	token, err := c.GetBearerToken()
+	if err != nil {
+		return nil, err
+	}
+
+	var bearer = "Bearer " + *token
+	sUrl := c.ServerURL
+
+	b, e := json.Marshal(bcData)
+	if e != nil {
+		return nil, fmt.Errorf("Failed to parse bc data:" + e.Error())
+	}
+
+	r, _ := http.NewRequest(http.MethodPost, sUrl.String(), bytes.NewBuffer(b))
+
+	r.Header.Set("Authorization", bearer)
+	r.Header.Add("Content-Type", "application/json")
+
+	resp, err := c.client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+
+	anodotResponse := &Api30Response{}
+	anodotResponse.HttpResponse = resp
+
+	if resp.Body == nil {
+		return anodotResponse, fmt.Errorf("empty response body")
+	}
+
+	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+
+	if resp.StatusCode/100 != 2 {
+		err = json.Unmarshal(bodyBytes, &anodotResponse.Error)
+		if err != nil {
+			return anodotResponse, fmt.Errorf("failed to parse reponse body: %v \n%s", err, string(bodyBytes))
+		}
+		return anodotResponse, nil
+	}
+
+	return anodotResponse, nil
+}
+
 type debugHTTPTransport struct {
 	r http.RoundTripper
 }
