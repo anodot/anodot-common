@@ -433,7 +433,8 @@ func (c *Anodot30Client) SendToBC(bcData Pipeline) (*Api30Response, error) {
 	}
 
 	var bearer = "Bearer " + *token
-	sUrl := c.ServerURL
+	sUrl := *c.ServerURL
+	sUrl.Path = "api/v2/bc/agents"
 
 	b, e := json.Marshal(bcData)
 	if e != nil {
