@@ -16,8 +16,8 @@ type Progress struct {
 
 type Pipeline struct {
 	Id                  string `json:"pipeline_id"`
-	Created             string `json:"created"`
-	Updated             string `json:"updated"`
+	Created             int    `json:"created"`
+	Updated             int    `json:"updated"`
 	Status              string `json:"status"`
 	SchemaId            string `json:"schemaId"`
 	Source              `json:"source"`
