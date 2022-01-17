@@ -215,6 +215,84 @@ func (s *Anodot20Client) sendMetrics(metrics []Anodot20Metric, endpoint string) 
 	}
 }
 
+//DO NOT USE THIS METHOD. USED FOR INTERNAL PURPOSES
+func (s *Anodot20Client) FlushMetricsBucket(metrics []Anodot20Metric, rollup string, loc *time.Location) (AnodotResponse, error) {
+	type FlushBucket struct {
+		Properties map[string]string `json:"properties"`
+		Timestamp  AnodotTimestamp   `json:"timestamp"`
+		Value      float64           `json:"value"`
+		Tags       map[string]string `json:"tags"`
+		Flush      bool              `json:"flush"`
+		Rollup     string            `json:"rollup"`
+	}
+
+	var flReq []FlushBucket
+
+	for _, v := range metrics {
+		t := v.Timestamp
+
+		if rollup == "longlongRollup" {
+
+			ts := v.Timestamp.Format("2006-01-02")
+			tParsed, _ := time.Parse("2006-01-02", ts)
+
+			//end of daily bucket is start of next day
+			end := tParsed.Add(time.Hour * 24)
+
+			//if account timezone is not UTC, flush bucket time is UTC midnight - timezone offset
+			_, offset := time.Unix(end.Unix(), 0).In(loc).Zone()
+			timeInLoc := time.Unix(end.Unix()-int64(offset), 0)
+
+			t = AnodotTimestamp{timeInLoc}
+		}
+
+		flReq = append(flReq, FlushBucket{Properties: v.Properties, Timestamp: t, Value: 0, Tags: v.Tags, Flush: true, Rollup: rollup})
+	}
+
+	sUrl := *s.ServerURL
+	sUrl.Path = "/api/v1/metrics"
+
+	q := sUrl.Query()
+	q.Set("token", s.Token)
+	q.Set("protocol", "anodot20")
+
+	sUrl.RawQuery = q.Encode()
+
+	b, e := json.Marshal(flReq)
+	if e != nil {
+		return nil, fmt.Errorf("Failed to parse message:" + e.Error())
+	}
+
+	r, _ := http.NewRequest(http.MethodPost, sUrl.String(), bytes.NewBuffer(b))
+	r.Header.Add("Content-Type", "application/json")
+
+	resp, err := s.client.Do(r)
+	anodotResponse := &CreateResponse{HttpResponse: resp}
+	if err != nil {
+		return anodotResponse, err
+	}
+
+	if resp.StatusCode != 200 {
+		return anodotResponse, fmt.Errorf("http error: %d", resp.StatusCode)
+	}
+
+	if resp.Body == nil {
+		return anodotResponse, fmt.Errorf("empty response body")
+	}
+
+	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+	err = json.Unmarshal(bodyBytes, anodotResponse)
+	if err != nil {
+		return anodotResponse, fmt.Errorf("failed to parse Anodot sever response: %w ", err)
+	}
+
+	if anodotResponse.HasErrors() {
+		return anodotResponse, errors.New(anodotResponse.ErrorMessage())
+	} else {
+		return anodotResponse, nil
+	}
+}
+
 func (s *Anodot20Client) DeleteMetrics(expressions ...DeleteExpression) (AnodotResponse, error) {
 	s.ServerURL.Path = "/api/v1/metrics"
 
